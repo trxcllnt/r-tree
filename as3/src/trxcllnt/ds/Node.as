@@ -25,7 +25,7 @@ package trxcllnt.ds
 			children = array || kids;
 		}
 		
-		private const kids:Array = [];
+		private var kids:Array = [];
 		public function get children():Array {
 			return kids;
 		}
