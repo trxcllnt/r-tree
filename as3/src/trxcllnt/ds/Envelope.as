@@ -46,5 +46,12 @@ package trxcllnt.ds
 		public function get area():Number {
 			return width * height;
 		}
+		
+		public function computeInflation(other:Envelope):Number {
+			const w:Number = (Math.max(right, other.right) - Math.min(left, other.left));
+			const h:Number = (Math.max(bottom, other.bottom) - Math.min(top, other.top));
+			
+			return (w * h) - area;
+		}
 	}
 }

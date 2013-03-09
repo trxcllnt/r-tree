@@ -2,10 +2,13 @@ package trxcllnt.ds
 {
 	import flash.geom.Rectangle;
 	
+	import asx.array.contains;
 	import asx.array.filter;
+	import asx.array.forEach;
+	import asx.array.map;
 	import asx.array.pluck;
-	import asx.fn.getProperty;
-	import asx.fn.sequence;
+	import asx.fn.callProperty;
+	import asx.fn.setProperty;
 	import asx.number.sum;
 
 	/**
@@ -15,15 +18,19 @@ package trxcllnt.ds
 	{
 		public static const e:Object = {};
 		
-		public function Node(rect:Rectangle = null, object:* = null, array:Array = null) {
+		public function Node(rect:Rectangle = null, object:* = null, array:Array = null, parentNode:Node = null) {
 			
-			env = cachedBoundingBox = cachedEnv = rect is Envelope ?
+			env = cachedEnv = rect is Envelope ?
 				(rect as Envelope) :
 				new Envelope(rect);
 			
 			elem = object === null || object == undefined ? Node.e : object;
+			parent = parentNode;
+			
 			children = array || kids;
 		}
+		
+		public var parent:Node = null;
 		
 		private var kids:Array = [];
 		public function get children():Array {
@@ -31,8 +38,9 @@ package trxcllnt.ds
 		}
 		
 		public function set children(values:Array):void {
-			kids = values//.concat(); // defensive copy?
-			boundingBoxInvalidated = true;
+			kids = values.concat(); // defensive copy
+			forEach(kids, setProperty('parent', this));
+			invalidateBoundingBox();
 		}
 		
 		private var elem:* = Node.e;
@@ -41,17 +49,15 @@ package trxcllnt.ds
 		}
 		
 		private var env:Envelope = null;
-		private var cachedBoundingBox:Envelope = null;
 		private var cachedEnv:Envelope = null;
-		private var boundingBoxInvalidated:Boolean = false;
 		
 		public function get envelope():Envelope {
 			
 			const invalidated:Boolean = boundingBoxInvalidated;
 			boundingBoxInvalidated = false;
 			
-			return invalidated && length ?
-				(cachedEnv = env.add(cachedBoundingBox = minBoundingBox)) :
+			return invalidated && !isEmpty ?
+				(cachedEnv = env.add(minBoundingBox)) :
 				cachedEnv;
 		}
 		
@@ -76,11 +82,7 @@ package trxcllnt.ds
 		}
 		
 		public function clone():Node {
-			return new Node(env, elem, kids);
-		}
-		
-		public function intersections(rect:Rectangle):Array {
-			return filter(children, sequence(getProperty('envelope'), rect.intersects));
+			return new Node(env, elem, map(kids, callProperty('clone')), parent);
 		}
 		
 		public function append(node:Node):Node {
@@ -89,10 +91,45 @@ package trxcllnt.ds
 			return this;
 		}
 		
+		public function container(node:Node):Node {
+			if(contains(children, node))
+				return this;
+			
+			var container:Node = null;
+			
+			for(var i:int = 0, n:int = kids.length; i < n; ++i) {
+				container = kids[i].container(node);
+				
+				if(container != null)
+					return container;
+			}
+			
+			return null;
+		}
+		
+		public function intersects(other:*):Boolean {
+			return other is Rectangle ?
+				envelope.intersects(other) :
+				envelope.intersects(other.envelope);
+		}
+		
+		public function intersections(other:*):Array {
+			return filter(children, callProperty('intersects', other));
+		}
+		
 		public function prepend(node:Node):Node {
 			kids.unshift(node);
 			children = kids;
 			return this;
+		}
+		
+		private var boundingBoxInvalidated:Boolean = false;
+		private function invalidateBoundingBox():Boolean {
+			boundingBoxInvalidated = true;
+			
+			return parent ?
+				parent.invalidateBoundingBox() :
+				boundingBoxInvalidated;
 		}
 	}
 }
