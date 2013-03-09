@@ -16,7 +16,7 @@ package
 	import trxcllnt.ds.Envelope;
 	import trxcllnt.ds.Node;
 	import trxcllnt.ds.RTree;
-	import trxcllnt.ds.RTreeFunctional;
+	import trxcllnt.ds.RTree;
 
 	public class TreeTests
 	{
@@ -57,8 +57,9 @@ package
 				'inserted', numRects, ' nodes'
 			);
 			
+			var /*const*/ values:Array = tree.values();
 			t = getTimer();
-			var /*const*/ found:Boolean = allOf(nodes, partial(assertCanFindNode, tree));
+			var /*const*/ found:Boolean = allOf(values, partial(assertCanFindNode, tree));
 			trace(
 				getTimer() - t + 'ms:',
 				'[' + (found ? 'Success' : 'Failure') + ']:',
@@ -66,7 +67,7 @@ package
 			);
 			
 			t = getTimer();
-			var /*const*/ meetsBounds:Boolean = allOf(nodes, partial(assertMeetsBounds, tree, nodes));
+			var /*const*/ meetsBounds:Boolean = allOf(values, partial(assertMeetsBounds, tree, values));
 			trace(
 				getTimer() - t + 'ms:',
 				'[' + (meetsBounds ? 'Success' : 'Failure') + ']:',

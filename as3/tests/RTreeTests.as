@@ -2,16 +2,16 @@ package
 {
 	import flash.display.Sprite;
 	
-	import trxcllnt.ds.RTreeFunctional;
+	import trxcllnt.ds.RTree;
 	
 	[SWF(width = "600", height = "500")]
-	public class FunctionalRTreeTests extends Sprite
+	public class RTreeTests extends Sprite
 	{
-		public function FunctionalRTreeTests()
+		public function RTreeTests()
 		{
 			super();
 			
-			new TreeTests(new RTreeFunctional(), 100, stage.stageWidth, stage.stageHeight);
+			new TreeTests(new RTree(), 100, stage.stageWidth, stage.stageHeight);
 			
 //			var enumerable:IEnumerable = Enumerable.range(0, 10).
 //				map(function(i:int):Point {

@@ -61,6 +61,11 @@ package trxcllnt.ds
 				cachedEnv;
 		}
 		
+		public function set envelope(val:Envelope):void {
+			invalidateBoundingBox();
+			env = val;
+		}
+		
 		public function get length():int {
 			return kids.length;
 		}
@@ -81,8 +86,8 @@ package trxcllnt.ds
 			return length + sum(pluck(children, 'size'));
 		}
 		
-		public function clone():Node {
-			return new Node(env, elem, map(kids, callProperty('clone')), parent);
+		public function clone(deep:Boolean = false):Node {
+			return new Node(env, elem, deep ? map(kids, callProperty('clone')) : kids, parent);
 		}
 		
 		public function append(node:Node):Node {

@@ -31,18 +31,18 @@ package
 			graphics.drawRect(0, 0, width, height);
 			graphics.endFill();
 			
-			var /*const*/ getRect:Function = function():Rectangle {
+			const getRect:Function = function():Rectangle {
 				
-				var /*const*/ x:Number = Math.random() * width;
-				var /*const*/ y:Number = Math.random() * height;
-				var /*const*/ w:Number = Math.random() * (width - x);
-				var /*const*/ h:Number = Math.random() * 600;
+				const x:Number = Math.random() * width;
+				const y:Number = Math.random() * height;
+				const w:Number = Math.random() * (width - x);
+				const h:Number = Math.random() * 600;
 				
 				return new Rectangle(x, y, w, h);
 			};
 			
-			var /*const*/ rects:Array = map(range(numRects), getRect);
-			var /*const*/ sprites:Array = map(range(numRects), aritize(partial(newInstance, Sprite), 0));
+			const rects:Array = map(range(numRects), getRect);
+			const sprites:Array = map(range(numRects), aritize(partial(newInstance, Sprite), 0));
 			
 			var t:int = 0;
 			const setT:Function = function():int { return t = getTimer(); };
@@ -55,7 +55,7 @@ package
 			setT();
 			
 			forEach(pairs,  distribute(function(sprite:Sprite, r:Rectangle):void {
-				var /*const*/ g:Graphics = sprite.graphics;
+				const g:Graphics = sprite.graphics;
 				g.lineStyle(1, 0xCCCCCC);
 				g.drawRect(r.x, r.y, r.width, r.height);
 			}));
@@ -77,9 +77,10 @@ package
 			trace("Avg insertion time", sum(insertionTimes) / insertionTimes.length);
 			trace("Insertion times", insertionTimes);
 			
-			var /*const*/ overlapping:Array = [];
-			var /*const*/ highlight:Function = function(r:Rectangle):void {
+			var overlapping:Array = [];
+			const highlight:Function = function(r:Rectangle):void {
 				
+				const parents:Array = pluck(overlapping, 'parent');
 				forEach(overlapping, removeChild);
 				
 				overlapping.length = 0;
@@ -93,34 +94,32 @@ package
 				graphics.drawRect(r.x, r.y, r.width, r.height);
 				
 				setT();
-				var /*const*/ intersections:Array = tree.intersections(r);
+				const intersections:Array = tree.intersections(r);
 				trace('Searching took:', getTimer() - t);
 				
-				overlapping.push.apply(overlapping, pluck(intersections, 'element'));
-				
-				forEach(overlapping, addChild);
+				overlapping = map(pluck(intersections, 'element'), addChild);
 			};
 			
-			var /*const*/ viewport:Rectangle = new Rectangle(0, 0, 1000, 600);
+			const viewport:Rectangle = new Rectangle(0, 0, 1000, 600);
 			var y:Number = 0;
 			
-			var /*const*/ down:Function = function(d:MouseEvent):void {
+			const down:Function = function(d:MouseEvent):void {
 				y = d.stageY;
 				removeEventListener(MouseEvent.MOUSE_DOWN, down);
 				addEventListener(MouseEvent.MOUSE_MOVE, move);
 				addEventListener(MouseEvent.MOUSE_UP, up);
 			};
-			var /*const*/ move:Function = function(m:MouseEvent):void {
+			const move:Function = function(m:MouseEvent):void {
 				viewport.y += m.stageY - y;
 				y = m.stageY;
 				highlight(viewport);
 			};
-			var /*const*/ up:Function = function(u:MouseEvent):void {
+			const up:Function = function(u:MouseEvent):void {
 				removeEventListener(MouseEvent.MOUSE_MOVE, move);
 				removeEventListener(MouseEvent.MOUSE_UP, up);
 				addEventListener(MouseEvent.MOUSE_DOWN, down);
 			};
-			var /*const*/ doubleClick:Function = function(dd:MouseEvent):void {
+			const doubleClick:Function = function(dd:MouseEvent):void {
 				viewport.y = y = dd.stageY - 300;
 				highlight(viewport);
 			};
