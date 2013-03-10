@@ -4,19 +4,34 @@ package
 	import flash.display.Sprite;
 	import flash.events.MouseEvent;
 	import flash.geom.Rectangle;
+	import flash.text.engine.ElementFormat;
+	import flash.text.engine.TextBlock;
+	import flash.text.engine.TextElement;
+	import flash.text.engine.TextLine;
 	import flash.utils.getTimer;
 	
+	import asx.array.filter;
 	import asx.array.forEach;
 	import asx.array.map;
 	import asx.array.pluck;
 	import asx.array.range;
 	import asx.array.zip;
+	import asx.color.blue;
+	import asx.color.green;
+	import asx.fn.I;
+	import asx.fn._;
 	import asx.fn.aritize;
+	import asx.fn.callProperty;
 	import asx.fn.distribute;
+	import asx.fn.getProperty;
+	import asx.fn.ifElse;
 	import asx.fn.partial;
+	import asx.fn.sequence;
+	import asx.fn.setProperty;
 	import asx.number.sum;
 	import asx.object.newInstance;
 	
+	import trxcllnt.ds.Node;
 	import trxcllnt.ds.RTree;
 	
 	public class TreeUI extends Sprite
@@ -56,7 +71,7 @@ package
 			
 			forEach(pairs,  distribute(function(sprite:Sprite, r:Rectangle):void {
 				const g:Graphics = sprite.graphics;
-				g.lineStyle(1, 0xCCCCCC);
+				g.lineStyle(2, 0xffffff);
 				g.drawRect(r.x, r.y, r.width, r.height);
 			}));
 			
@@ -66,7 +81,7 @@ package
 			const insertionStart:int = setT();
 			const insertionTimes:Array = [];
 			
-			//			 Insert the Set<Sprite, Rect> into the tree.
+			// Insert the Array<Sprite, Rect> into the tree.
 			for(var j:int = 0, k:int = pairs.length; j < k; ++j) {
 				setT();
 				tree.insert(pairs[j][0], pairs[j][1]);
@@ -77,10 +92,22 @@ package
 			trace("Avg insertion time", sum(insertionTimes) / insertionTimes.length);
 			trace("Insertion times", insertionTimes);
 			
+			// Breadth-first iteration through the container nodes so
+			// we can color them by insertion-level.
+			var /*const*/ color:Function = function(level:int):Function {
+				return function(node:Node):void {
+					if(node.isEmpty) return;
+					node.element = level;
+					forEach(node.children, color(level + 1));
+				};
+			};
+			
+			forEach(tree.children, color(1));
+			
 			var overlapping:Array = [];
+			
 			const highlight:Function = function(r:Rectangle):void {
 				
-				const parents:Array = pluck(overlapping, 'parent');
 				forEach(overlapping, removeChild);
 				
 				overlapping.length = 0;
@@ -93,9 +120,35 @@ package
 				graphics.lineStyle(3, 0xFF0000);
 				graphics.drawRect(r.x, r.y, r.width, r.height);
 				
-				setT();
+				const block:TextBlock = new TextBlock();
+				
 				const intersections:Array = tree.intersections(r);
-				trace('Searching took:', getTimer() - t);
+				
+				tree.search(
+					filter(tree.children, callProperty('intersects', r)),
+					getProperty('isEmpty'),
+					function(node:Node):Array {
+						
+						var /*const*/ parent:Rectangle = node.parent.envelope;
+						var /*const*/ r1:Rectangle = node.envelope;
+						var /*const*/ l:int = node.element;
+						
+						var /*const*/ overlaps:Boolean = r1.x == parent.x && r1.y == parent.y && l > 1;
+						var /*const*/ str:String = (overlaps ? '- ' : '') + l.toString();
+						
+						block.content = new TextElement(str.toString(), new ElementFormat(null, 20, 0x00FF00, 0.5));
+						
+						var /*const*/ line:TextLine = block.createTextLine(null);
+						line.x = r1.x + (overlaps ? 20 : 5);
+						line.y = r1.y + 5 + line.ascent;
+						
+						intersections.push({element: line});
+						
+						graphics.lineStyle(2, 0x00FF00, 0.25);
+						graphics.drawRect(r1.x, r1.y, r1.width, r1.height);
+						
+						return node.intersections(r);
+					});
 				
 				overlapping = map(pluck(intersections, 'element'), addChild);
 			};

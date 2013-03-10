@@ -5,11 +5,15 @@ package trxcllnt.ds
 	import asx.array.filter;
 	import asx.array.first;
 	import asx.array.flatten;
+	import asx.array.forEach;
 	import asx.array.last;
 	import asx.array.map;
+	import asx.array.pluck;
+	import asx.array.zip;
 	import asx.fn.I;
 	import asx.fn._;
 	import asx.fn.callProperty;
+	import asx.fn.distribute;
 	import asx.fn.equalTo;
 	import asx.fn.getProperty;
 	import asx.fn.ifElse;
@@ -34,11 +38,11 @@ package trxcllnt.ds
 		);
 		
 		override public function intersections(other:*):Array {
-			return filter(flatten(search(
+			return flatten(search(
 				super.intersections(other),
 				getProperty('isEmpty'),
 				callProperty('intersections', other)
-			)), not(elementIsNull));
+			));
 		}
 		
 		public function leaves():Array {
@@ -57,7 +61,20 @@ package trxcllnt.ds
 			)), not(elementIsNull));
 		}
 		
-		public function insert(elem:*, rect:Rectangle):Node {
+		public function find(element:*):Node {
+			return search(
+				children,
+				partial(equalTo, element),
+				getProperty('children')
+			)[0] as Node;
+		}
+		
+		public function setSize(element:*, size:Rectangle):* {
+			find(element).envelope = (size is Envelope ? size : new Envelope(size)) as Envelope;
+			return element;
+		}
+		
+		public function insert(element:*, rect:Rectangle):Node {
 			
 			const env:Envelope = rect is Envelope ?
 				(rect as Envelope) :
@@ -66,7 +83,7 @@ package trxcllnt.ds
 			// computeInsert has two return signatures:
 			// insertion: Tuple<Leaf, e>
 			// split:     Tuple<Node, Node>
-			const insertion:Array = computeInsert(elem, env, this, maxNodeLoad);
+			const insertion:Array = computeInsert(element, env, this, maxNodeLoad);
 			
 			// Can be either "Node.e" or the right-
 			// associated Node from a split operation.
@@ -75,6 +92,41 @@ package trxcllnt.ds
 			// If result is e, an insertion was made.
 			// If result is a Node, a root split was performed.
 			return (result === Node.e ? first(insertion) : last(insertion)) as Node;
+		}
+		
+		override public function remove(element:*):Node {
+			
+			const node:Node = find(element);
+			const parent:Node = node.parent;
+			
+			// Can't remove the root node.
+			if(!parent) return node;
+			
+			// Remove this node from its parent
+			parent.remove(node);
+			
+			// Find the value nodes under this parent so we can re-insert them.
+			const values:Array = filter(search(
+				parent.children, 
+				getProperty('isEmpty'),
+				getProperty('children')
+			), not(elementIsNull));
+			
+			// If this node has a parent, disolve this node.
+			// If it doesn't, just clear out its children since the parent is
+			// the root node.
+			if(parent.parent)
+				parent.parent.remove(parent);
+			else
+				parent.children = [];
+			
+			// Re-insert the children into the tree from the root.
+			forEach(zip(
+				pluck(values, 'element'),
+				pluck(values, 'envelope')
+			), distribute(insert));
+			
+			return this;
 		}
 		
 		/**

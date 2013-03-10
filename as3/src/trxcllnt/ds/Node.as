@@ -7,6 +7,7 @@ package trxcllnt.ds
 	import asx.array.forEach;
 	import asx.array.map;
 	import asx.array.pluck;
+	import asx.array.without;
 	import asx.fn.callProperty;
 	import asx.fn.setProperty;
 	import asx.number.sum;
@@ -24,7 +25,7 @@ package trxcllnt.ds
 				(rect as Envelope) :
 				new Envelope(rect);
 			
-			elem = object === null || object == undefined ? Node.e : object;
+			this.element = object === null || object == undefined ? Node.e : object;
 			parent = parentNode;
 			
 			children = array || kids;
@@ -43,10 +44,7 @@ package trxcllnt.ds
 			invalidateBoundingBox();
 		}
 		
-		private var elem:* = Node.e;
-		public function get element():* {
-			return elem;
-		}
+		public var element:* = Node.e;
 		
 		private var env:Envelope = null;
 		private var cachedEnv:Envelope = null;
@@ -87,7 +85,7 @@ package trxcllnt.ds
 		}
 		
 		public function clone(deep:Boolean = false):Node {
-			return new Node(env, elem, deep ? map(kids, callProperty('clone')) : kids, parent);
+			return new Node(env, element, deep ? map(kids, callProperty('clone')) : kids, parent);
 		}
 		
 		public function append(node:Node):Node {
@@ -125,6 +123,15 @@ package trxcllnt.ds
 		public function prepend(node:Node):Node {
 			kids.unshift(node);
 			children = kids;
+			return this;
+		}
+		
+		public function remove(element:*):Node {
+			if(element is Node) {
+				children = without(kids, element);
+				element.parent = null;
+			}
+			
 			return this;
 		}
 		
