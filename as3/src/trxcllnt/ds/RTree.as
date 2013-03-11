@@ -12,9 +12,9 @@ package trxcllnt.ds
 	import asx.array.zip;
 	import asx.fn.I;
 	import asx.fn._;
+	import asx.fn.areEqual;
 	import asx.fn.callProperty;
 	import asx.fn.distribute;
-	import asx.fn.equalTo;
 	import asx.fn.getProperty;
 	import asx.fn.ifElse;
 	import asx.fn.not;
@@ -34,7 +34,7 @@ package trxcllnt.ds
 		
 		private static const elementIsNull:Function = sequence(
 			getProperty('element'),
-			partial(equalTo, Node.e)
+			partial(areEqual, Node.e)
 		);
 		
 		override public function intersections(other:*):Array {
@@ -61,12 +61,27 @@ package trxcllnt.ds
 			)), not(elementIsNull));
 		}
 		
+		/**
+		 * Finds the first node with an element that matches the input element.
+		 */
 		public function find(element:*):Node {
-			return search(
-				children,
-				partial(equalTo, element),
-				getProperty('children')
-			)[0] as Node;
+			
+			// Optimization: Stop searching after a match is found.
+			
+			var isFound:Boolean = false;
+			var empty:Array = [];
+			
+			const checkFound:Function = function(node:Node):Boolean {
+				return isFound ?
+					true : 
+					isFound = areEqual(element, node.element);
+			};
+			
+			const searchNext:Function = function(node:Node):Array {
+				return isFound ? empty : node.children;
+			}
+			
+			return search(children, checkFound, searchNext)[0] as Node;
 		}
 		
 		public function setSize(element:*, size:Rectangle):* {
