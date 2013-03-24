@@ -12,7 +12,9 @@ package
 		{
 			super();
 			
-			addChild(new TreeUI(new RTree(), 250, stage.stageWidth, stage.stageHeight));
+//			addChild(new TreeUI(new RTree(), 250, stage.stageWidth, stage.stageHeight));
+//			addChild(new TreeListUI(new RTree(), 250, stage.stageWidth, stage.stageHeight));
+			addChild(new TreeGridUI(new RTree(), 250, stage.stageWidth, stage.stageHeight));
 		}
 	}
 }

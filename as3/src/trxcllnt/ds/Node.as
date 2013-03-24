@@ -39,8 +39,8 @@ package trxcllnt.ds
 		}
 		
 		public function set children(values:Array):void {
-			kids = values.concat(); // defensive copy
-			forEach(kids, setProperty('parent', this));
+			kids = values.concat();// defensive copy
+			forEach(kids, setProperty('parent', this)) as Array;
 			invalidateBoundingBox();
 		}
 		
@@ -77,7 +77,7 @@ package trxcllnt.ds
 		}
 		
 		public function get isLeaf():Boolean {
-			return isEmpty || (size - length) == 0;
+			return isEmpty || (sum(pluck(children, 'length'))) == 0;
 		}
 		
 		public function get size():int {
@@ -90,7 +90,7 @@ package trxcllnt.ds
 		
 		public function append(node:Node):Node {
 			kids.push(node);
-			children = kids;
+			node.parent = this;
 			return this;
 		}
 		
@@ -122,7 +122,7 @@ package trxcllnt.ds
 		
 		public function prepend(node:Node):Node {
 			kids.unshift(node);
-			children = kids;
+			node.parent = this;
 			return this;
 		}
 		

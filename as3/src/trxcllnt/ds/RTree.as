@@ -1,6 +1,7 @@
 package trxcllnt.ds
 {
 	import flash.geom.Rectangle;
+	import flash.utils.getTimer;
 	
 	import asx.array.detect;
 	import asx.array.filter;
@@ -23,16 +24,24 @@ package trxcllnt.ds
 	import asx.fn.sequence;
 	import asx.number.sum;
 	
-	public class RTree extends Node
+	public class RTree
 	{
 		public function RTree(maxNodeLoad:int = 8)
 		{
 			this.maxNodeLoad = maxNodeLoad;
-			
-			super(new Rectangle());
 		}
 		
-		protected var maxNodeLoad:int = 8;
+		private var root:Node = new Node();
+		
+		public function get envelope():Envelope {
+			return root.envelope;
+		}
+		
+		public function children():Array {
+			return root.children;
+		}
+		
+		private var maxNodeLoad:int = 8;
 		
 		private static const elementIsNull:Function = sequence(
 			getProperty('element'),
@@ -41,17 +50,9 @@ package trxcllnt.ds
 		
 		protected const nodes:Array = [];
 		
-		override public function get length():int {
-			return nodes.length;
-		}
-		
-		override public function get size():int {
-			return super.length + sum(pluck(children, 'size'));
-		}
-		
-		override public function intersections(other:*):Array {
+		public function intersections(other:*):Array {
 			return flatten(search(
-				super.intersections(other),
+				root.intersections(other),
 				getProperty('isEmpty'),
 				callProperty('intersections', other)
 			));
@@ -59,7 +60,7 @@ package trxcllnt.ds
 		
 		public function leaves():Array {
 			return flatten(search(
-				children,
+				root.children,
 				getProperty('isLeaf'),
 				getProperty('children')
 			));
@@ -102,7 +103,15 @@ package trxcllnt.ds
 		}
 		
 		public function setSize(element:*, size:Rectangle):* {
-			find(element).envelope = (size is Envelope ? size : new Envelope(size)) as Envelope;
+			var node:Node = find(element);
+			
+			if(!node) {
+				const t:Number = getTimer();
+				node = insert(element, size);
+				trace((getTimer() - t) + 'ms:', 'inserting', element.key);
+			}
+//			const node:Node = find(element) || insert(element, size);
+			node.envelope = (size is Envelope ? size : new Envelope(size)) as Envelope;
 			return element;
 		}
 		
@@ -117,20 +126,23 @@ package trxcllnt.ds
 			// computeInsert has two return signatures:
 			// insertion: Tuple<Leaf, e>
 			// split:     Tuple<Node, Node>
-			const insertion:Array = computeInsert(inserted, this, maxNodeLoad);
+			const insertion:Array = computeInsert(inserted, root, maxNodeLoad);
 			
 			nodes[nodes.length] = inserted;
 			
-			// Can be either "Node.e" or the right-
-			// associated Node from a split operation.
+			// Can be either "Node.e" or the new parent
+			// Node from a split operation.
 			const result:Object = last(insertion);
 			
-			// If result is e, an insertion was made.
-			// If result is a Node, a root split was performed.
-			return (result === Node.e ? first(insertion) : last(insertion)) as Node;
+			return (result === Node.e ?
+				// If result is Node.e, an insertion was made.
+				first(insertion) :
+				// If result is a Node, a root split was performed.
+				root = Node(last(insertion))
+			) as Node;
 		}
 		
-		override public function remove(element:*):Node {
+		public function remove(element:*):RTree {
 			
 			const node:Node = find(element);
 			
@@ -139,7 +151,7 @@ package trxcllnt.ds
 			const parent:Node = node.parent;
 			
 			// Can't remove the root node.
-			if(!parent) return node;
+			if(!parent) return this;
 			
 			// Remove this node from its parent
 			parent.remove(node);
@@ -169,18 +181,19 @@ package trxcllnt.ds
 		}
 		
 		/**
-		 * Recursive R-Tree map/reduce
+		 * Recursive R-Tree map/reduce.
 		 */
 		public function search(branch:Array,
-							   traversalTerminator:Function, /*(Node):Boolean*/
-							   reduction:Function = null     /*(Node):Array  */):Array {
+							   terminator:Function = null, /*(Node):Boolean*/
+							   reduction:Function = null   /*(Node):Array*/):Array {
+			
 			// Kinda reads like LISP. My work here is done.
 			return map(branch, ifElse(
-				traversalTerminator,
+				terminator,
 				I,
 				sequence(
 					reduction,
-					partial(search, _, traversalTerminator, reduction)
+					partial(search, _, terminator, reduction)
 				)
 			));
 		}
@@ -216,22 +229,25 @@ internal function computeInsert(nI:Node, n0:Node, maxNodeLoad:int):Array {
 	// can handle the cases where the node is either a leaf and empty.
 	if(n0.isLeaf) {
 		
-		n0.append(nI);
-		
 		// Is this node overflowing?
-		if(n0.length < maxNodeLoad) {
+		if(n0.length <= maxNodeLoad - 1) {
+			n0.append(nI);
 			return [nI, Node.e]; // No, so return the inserted node.
 		}
 		
 		// Otherwise, perform a split and return the containers.
-		split_results = splitNodes(n0.children);
+		split_results = splitNodes(n0.children.concat(nI));
 		
-		n0.envelope = split_results[0][0];
-		n0.children = split_results[0][1];
+//		n0.envelope = split_results[0][0];
+//		n0.children = split_results[0][1];
+//		n0.append(new Node(split_results[1][0], null, split_results[1][1]));
 		
-		n0.append(new Node(split_results[1][0], null, split_results[1][1]));
+		n0.children = [
+			new Node(split_results[0][0], null, split_results[0][1]),
+			new Node(split_results[1][0], null, split_results[1][1])
+		];
 		
-		return [ n0, last(n0.children) ];
+		return [ nI, n0 ];
 	}
 	
 	// [leastAffectedNode, siblings, inflation] 
@@ -244,8 +260,8 @@ internal function computeInsert(nI:Node, n0:Node, maxNodeLoad:int):Array {
 	const insertion_result:Array = computeInsert(nI, leastAffectedChild, maxNodeLoad);
 	
 	// Will either be Node.e or a Node
-	const result:Object = insertion_result[1];
-	const min1:Node = insertion_result[0];
+	const min1:Node = first(insertion_result) as Node;
+	const result:Object = last(insertion_result);
 	
 	if(result === Node.e)
 		return [ min1, Node.e ];
@@ -253,17 +269,22 @@ internal function computeInsert(nI:Node, n0:Node, maxNodeLoad:int):Array {
 	// If we hit this, we split a node underneath us but our current level
 	// isn't overflowing. Return the new container node and Node.e to
 	// indicate to our parent that the current level doesn't need to be split. 
-	if (n0.length < maxNodeLoad)
+	if (n0.length <= maxNodeLoad)
 		return [ result, Node.e ];
 	
-	// Perform a split and return the containers.
+	// Perform a split, create new containers, return the container parent.
 	split_results = splitNodes(insertion_result.concat(affectedSiblings));
-	n0.envelope = split_results[0][0];
-	n0.children = split_results[0][1];
 	
-	n0.append(new Node(split_results[1][0], null, split_results[1][1]));
+//	n0.envelope = split_results[0][0];
+//	n0.children = split_results[0][1];
+//	
+//	n0.append(new Node(split_results[1][0], null, split_results[1][1]));
+	n0.children = [
+		new Node(split_results[0][0], null, split_results[0][1]),
+		new Node(split_results[1][0], null, split_results[1][1])
+	];
 	
-	return [ n0, last(n0.children) ];
+	return [ nI, n0 ];
 }
 
 /**

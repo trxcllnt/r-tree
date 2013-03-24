@@ -6,13 +6,13 @@ package
 	
 	import trxcllnt.ds.RTree;
 
-	public class TreeListUI extends TreeUI
+	public class TreeGridUI extends TreeUI
 	{
 		override protected function getRect(i:int):Rectangle {
-			return new Rectangle(0, i * 100, 90, 90);
+			return new Rectangle(i % 10 * 100, Math.floor(i / 10) * 100, 90, 90);
 		}
 		
-		public function TreeListUI(tree:RTree, numRects:int, width:Number, height:Number)
+		public function TreeGridUI(tree:RTree, numRects:int, width:Number, height:Number)
 		{
 			super(tree, numRects, width, height);
 		}
