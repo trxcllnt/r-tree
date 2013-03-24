@@ -2,6 +2,7 @@ package trxcllnt.ds
 {
 	import flash.geom.Rectangle;
 	
+	import asx.array.detect;
 	import asx.array.filter;
 	import asx.array.first;
 	import asx.array.flatten;
@@ -20,6 +21,7 @@ package trxcllnt.ds
 	import asx.fn.not;
 	import asx.fn.partial;
 	import asx.fn.sequence;
+	import asx.number.sum;
 	
 	public class RTree extends Node
 	{
@@ -36,6 +38,16 @@ package trxcllnt.ds
 			getProperty('element'),
 			partial(areEqual, Node.e)
 		);
+		
+		protected const nodes:Array = [];
+		
+		override public function get length():int {
+			return nodes.length;
+		}
+		
+		override public function get size():int {
+			return super.length + sum(pluck(children, 'size'));
+		}
 		
 		override public function intersections(other:*):Array {
 			return flatten(search(
@@ -54,34 +66,39 @@ package trxcllnt.ds
 		}
 		
 		public function values():Array {
-			return filter(flatten(search(
-				children, 
-				getProperty('isEmpty'),
-				getProperty('children')
-			)), not(elementIsNull));
+			return nodes.concat();
 		}
 		
 		/**
 		 * Finds the first node with an element that matches the input element.
 		 */
 		public function find(element:*):Node {
+			// Searching through the flattened list of element nodes
+			// is faster than traversing the hierarchy of branches.
+			return detect(nodes, sequence(
+				getProperty('element'),
+				partial(areEqual, element, _)
+			)) as Node;
 			
 			// Optimization: Stop searching after a match is found.
-			
-			var isFound:Boolean = false;
-			var empty:Array = [];
-			
-			const checkFound:Function = function(node:Node):Boolean {
-				return isFound ?
-					true : 
-					isFound = areEqual(element, node.element);
-			};
-			
-			const searchNext:Function = function(node:Node):Array {
-				return isFound ? empty : node.children;
-			}
-			
-			return search(children, checkFound, searchNext)[0] as Node;
+			// var isFound:Boolean = false;
+			// var empty:Array = [];
+			// 
+			// const checkFound:Function = function(node:Node):Boolean {
+			// 	return isFound ?
+			// 		true : 
+			// 		isFound = areEqual(element, node.element);
+			// };
+			// 
+			// const searchNext:Function = function(node:Node):Array {
+			// 	return isFound ? empty : node.children;
+			// }
+			// 
+			// return search(children, checkFound, searchNext)[0] as Node;
+		}
+		
+		public function indexOf(element:*):int {
+			return nodes.indexOf(find(element));
 		}
 		
 		public function setSize(element:*, size:Rectangle):* {
@@ -95,10 +112,14 @@ package trxcllnt.ds
 				(rect as Envelope) :
 				new Envelope(rect);
 			
+			const inserted:Node = new Node(env, element);
+			
 			// computeInsert has two return signatures:
 			// insertion: Tuple<Leaf, e>
 			// split:     Tuple<Node, Node>
-			const insertion:Array = computeInsert(element, env, this, maxNodeLoad);
+			const insertion:Array = computeInsert(inserted, this, maxNodeLoad);
+			
+			nodes[nodes.length] = inserted;
 			
 			// Can be either "Node.e" or the right-
 			// associated Node from a split operation.
@@ -112,6 +133,9 @@ package trxcllnt.ds
 		override public function remove(element:*):Node {
 			
 			const node:Node = find(element);
+			
+			nodes.splice(nodes.indexOf(node), 1);
+			
 			const parent:Node = node.parent;
 			
 			// Can't remove the root node.
@@ -164,6 +188,7 @@ package trxcllnt.ds
 }
 
 import asx.array.first;
+import asx.array.last;
 import asx.array.permutate;
 import asx.array.reduce;
 import asx.array.tail;
@@ -183,22 +208,19 @@ internal function computeDiff(e0:Envelope, e1:Envelope, env:Envelope):Number {
 	return Math.abs(e0.computeInflation(env) - e1.computeInflation(env));
 }
 
-internal function computeInsert(element:*, env0:Envelope, n0:Node, maxNodeLoad:int):Array {
+internal function computeInsert(nI:Node, n0:Node, maxNodeLoad:int):Array {
 	
 	var split_results:Array;
-	var inserted:Node;
 	
 	// If the node is empty, appending is the same as prepending. This branch
 	// can handle the cases where the node is either a leaf and empty.
 	if(n0.isLeaf) {
 		
-		inserted = new Node(env0, element);
-		
-		n0.append(inserted);
+		n0.append(nI);
 		
 		// Is this node overflowing?
 		if(n0.length < maxNodeLoad) {
-			return [inserted, Node.e]; // No, so return the inserted node.
+			return [nI, Node.e]; // No, so return the inserted node.
 		}
 		
 		// Otherwise, perform a split and return the containers.
@@ -207,44 +229,41 @@ internal function computeInsert(element:*, env0:Envelope, n0:Node, maxNodeLoad:i
 		n0.envelope = split_results[0][0];
 		n0.children = split_results[0][1];
 		
-		inserted = new Node(split_results[1][0], null, split_results[1][1]);
+		n0.append(new Node(split_results[1][0], null, split_results[1][1]));
 		
-		n0.append(inserted);
-		
-		return [ n0, inserted ];
+		return [ n0, last(n0.children) ];
 	}
 	
 	// [leastAffectedNode, siblings, inflation] 
-	const affected_results:Array = getLeastAffectedNode(env0, n0.children);
+	const affected_results:Array = getLeastAffectedNode(nI.envelope, n0.children);
 	
 	const leastAffectedChild:Node = affected_results[0];
 	const affectedSiblings:Array = affected_results[1];
 	
 	// [Node, Node.e] or [Node, Node]
-	const insertion_result:Array = computeInsert(element, env0, leastAffectedChild, maxNodeLoad);
+	const insertion_result:Array = computeInsert(nI, leastAffectedChild, maxNodeLoad);
 	
 	// Will either be Node.e or a Node
 	const result:Object = insertion_result[1];
 	const min1:Node = insertion_result[0];
 	
 	if(result === Node.e)
-		return [min1, Node.e];
+		return [ min1, Node.e ];
 	
 	// If we hit this, we split a node underneath us but our current level
 	// isn't overflowing. Return the new container node and Node.e to
 	// indicate to our parent that the current level doesn't need to be split. 
 	if (n0.length < maxNodeLoad)
-		return [result, Node.e];
+		return [ result, Node.e ];
 	
 	// Perform a split and return the containers.
 	split_results = splitNodes(insertion_result.concat(affectedSiblings));
 	n0.envelope = split_results[0][0];
 	n0.children = split_results[0][1];
 	
-	inserted = new Node(split_results[1][0], null, split_results[1][1]);
-	n0.append(inserted);
+	n0.append(new Node(split_results[1][0], null, split_results[1][1]));
 	
-	return [ n0, inserted ];
+	return [ n0, last(n0.children) ];
 }
 
 /**
