@@ -25,6 +25,7 @@ package
 	import asx.fn.distribute;
 	import asx.fn.getProperty;
 	import asx.fn.ifElse;
+	import asx.fn.noop;
 	import asx.fn.partial;
 	import asx.fn.sequence;
 	import asx.fn.setProperty;
@@ -36,6 +37,16 @@ package
 	
 	public class TreeUI extends Sprite
 	{
+		protected function getRect(i:int):Rectangle {
+			
+			const x:Number = Math.random() * width;
+			const y:Number = Math.random() * height;
+			const w:Number = Math.random() * (width - x);
+			const h:Number = Math.random() * 600;
+			
+			return new Rectangle(x, y, w, h);
+		};
+		
 		public function TreeUI(tree:RTree, numRects:int, width:Number, height:Number)
 		{
 			super();
@@ -45,16 +56,6 @@ package
 			graphics.beginFill(0, 1);
 			graphics.drawRect(0, 0, width, height);
 			graphics.endFill();
-			
-			const getRect:Function = function():Rectangle {
-				
-				const x:Number = Math.random() * width;
-				const y:Number = Math.random() * height;
-				const w:Number = Math.random() * (width - x);
-				const h:Number = Math.random() * 600;
-				
-				return new Rectangle(x, y, w, h);
-			};
 			
 			const rects:Array = map(range(numRects), getRect);
 			const sprites:Array = map(range(numRects), aritize(partial(newInstance, Sprite), 0));
@@ -108,7 +109,7 @@ package
 			
 			const highlight:Function = function(r:Rectangle):void {
 				
-				forEach(overlapping, removeChild);
+				forEach(overlapping, ifElse(contains, removeChild, noop));
 				
 				overlapping.length = 0;
 				
