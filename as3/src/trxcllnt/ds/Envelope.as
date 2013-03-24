@@ -1,5 +1,6 @@
 package trxcllnt.ds
 {
+	import flash.display.DisplayObject;
 	import flash.geom.Rectangle;
 	
 	import asx.array.pluck;
@@ -18,6 +19,11 @@ package trxcllnt.ds
 				r.height = args[3];
 			} else if(args[0] is Rectangle) {
 				r = args[0];
+			} else if(args[0] is DisplayObject) {
+				r.x = args[0].x;
+				r.y = args[0].y;
+				r.width = args[0].width;
+				r.height = args[0].height;
 			}
 			
 			super(r.x, r.y, r.width, r.height);
